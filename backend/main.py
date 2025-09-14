@@ -640,16 +640,22 @@ def find_equivalent_links(title: str, artist: str, spotify_api, itunes_api, yt_a
     # Convert to deep links if requested
     if use_deep_links:
         for service, url in links.items():
-            if service == 'spotify' and 'open.spotify.com/track/' in url:
-                track_id = url.split('/track/')[1].split('?')[0]
-                links[service] = f"spotify:track:{track_id}"
-            elif service == 'apple' and ('music.apple.com' in url or 'itunes.apple.com' in url):
-                # For Apple Music, use music:// scheme
-                if '?i=' in url:
-                    links[service] = url.replace('https://music.apple.com', 'music://music.apple.com').replace('https://itunes.apple.com', 'music://itunes.apple.com')
-            elif service == 'youtube' and 'youtube.com/watch?v=' in url:
-                video_id = url.split('v=')[1].split('&')[0]
-                links[service] = f"https://music.youtube.com/watch?v={video_id}"
+            try:
+                if service == 'spotify' and 'open.spotify.com/track/' in url:
+                    track_id = url.split('/track/')[1].split('?')[0]
+                    if track_id:  # Ensure track_id is not empty
+                        links[service] = f"spotify:track:{track_id}"
+                elif service == 'apple' and ('music.apple.com' in url or 'itunes.apple.com' in url):
+                    # For Apple Music, use music:// scheme
+                    if '?i=' in url:
+                        links[service] = url.replace('https://music.apple.com', 'music://music.apple.com').replace('https://itunes.apple.com', 'music://itunes.apple.com')
+                elif service == 'youtube' and 'youtube.com/watch?v=' in url:
+                    video_id = url.split('v=')[1].split('&')[0]
+                    if video_id:  # Ensure video_id is not empty
+                        links[service] = f"https://music.youtube.com/watch?v={video_id}"
+            except (IndexError, AttributeError) as e:
+                print(f"[debug] Error converting {service} URL to deep link: {url}, error: {e}")
+                # Keep original URL if conversion fails
 
     return links, alternatives
 
@@ -803,15 +809,21 @@ async def redirect_handler(request: Request, url: str, pref: Optional[str] = Non
     final_url = url
     if deep_link:
         # Convert original URL to deep link format
-        if platform == 'spotify' and 'open.spotify.com/track/' in url:
-            track_id = url.split('/track/')[1].split('?')[0]
-            final_url = f"spotify:track:{track_id}"
-        elif platform == 'apple' and ('music.apple.com' in url or 'itunes.apple.com' in url):
-            if '?i=' in url:
-                final_url = url.replace('https://music.apple.com', 'music://music.apple.com').replace('https://itunes.apple.com', 'music://itunes.apple.com')
-        elif platform == 'youtube' and 'youtube.com/watch?v=' in url:
-            video_id = url.split('v=')[1].split('&')[0]
-            final_url = f"https://music.youtube.com/watch?v={video_id}"
+        try:
+            if platform == 'spotify' and 'open.spotify.com/track/' in url:
+                track_id = url.split('/track/')[1].split('?')[0]
+                if track_id:
+                    final_url = f"spotify:track:{track_id}"
+            elif platform == 'apple' and ('music.apple.com' in url or 'itunes.apple.com' in url):
+                if '?i=' in url:
+                    final_url = url.replace('https://music.apple.com', 'music://music.apple.com').replace('https://itunes.apple.com', 'music://itunes.apple.com')
+            elif platform == 'youtube' and 'youtube.com/watch?v=' in url:
+                video_id = url.split('v=')[1].split('&')[0]
+                if video_id:
+                    final_url = f"https://music.youtube.com/watch?v={video_id}"
+        except (IndexError, AttributeError) as e:
+            print(f"[debug] Error converting original URL to deep link: {url}, error: {e}")
+            # Keep original URL if conversion fails
         print(f"[debug] converted original URL to deep link: {final_url}")
     
     response = RedirectResponse(url=final_url, status_code=302)
