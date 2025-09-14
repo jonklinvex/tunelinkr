@@ -51,7 +51,7 @@ function getBackendUrl(backendEnvironment, customBackendUrl) {
     case 'localhost':
       return 'http://localhost:8000';
     case 'railway':
-      return 'https://web-production-27b4.up.railway.app/'; // You'll need to update this with your actual Railway URL
+      return 'https://web-production-27b4.up.railway.app'; 
     case 'custom':
       return customBackendUrl || 'http://localhost:8000';
     default:
