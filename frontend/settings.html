@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Preference Settings</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 640px; margin: 2rem auto; padding: 1rem; }
+        h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; }
+        .status { margin-top: 1rem; color: green; }
+    </style>
+</head>
+<body>
+    <h1>Select your preferred music service</h1>
+    <p>Whenever you click a Spotify, Apple Music or YouTube Music link, we'll
+       automatically open the song on your preferred service.</p>
+    <label><input type="radio" name="service" value="spotify"> Spotify</label>
+    <label><input type="radio" name="service" value="apple"> Apple Music</label>
+    <label><input type="radio" name="service" value="youtube"> YouTube</label>
+    <button id="saveBtn">Save preference</button>
+    <p class="status" id="status"></p>
+
+    <script>
+    // Helper to read/write local storage
+    const prefKey = 'music_pref';
+
+    function getStoredPreference() {
+        return localStorage.getItem(prefKey);
+    }
+
+    function setStoredPreference(value) {
+        localStorage.setItem(prefKey, value);
+    }
+
+    // Initialise radio buttons based on saved value
+    document.addEventListener('DOMContentLoaded', () => {
+        const saved = getStoredPreference();
+        if (saved) {
+            const radio = document.querySelector(`input[name="service"][value="${saved}"]`);
+            if (radio) radio.checked = true;
+        }
+    });
+
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+        const selected = document.querySelector('input[name="service"]:checked');
+        if (!selected) {
+            document.getElementById('status').textContent = 'Please choose a service.';
+            return;
+        }
+        const pref = selected.value;
+        setStoredPreference(pref);
+        // Call the backend to persist the cookie
+        try {
+            const res = await fetch(`http://localhost:8000/set_preference?pref=${encodeURIComponent(pref)}`);
+
+            if (res.ok) {
+                document.getElementById('status').textContent = `Preference saved: ${pref}`;
+            } else {
+                document.getElementById('status').textContent = 'Could not save preference (server error).';
+            }
+        } catch (err) {
+            document.getElementById('status').textContent = 'Network error while saving preference.';
+        }
+    });
+    </script>
+</body>
+</html>

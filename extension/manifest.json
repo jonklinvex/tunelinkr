@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "TuneLinkr Music Redirector",
+  "version": "1.0.0",
+  "description": "Automatically open music links in your preferred streaming service.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://open.spotify.com/*",
+    "https://spotify.com/*",
+    "https://music.apple.com/*",
+    "https://itunes.apple.com/*",
+    "https://music.youtube.com/*",
+    "https://www.youtube.com/*",
+    "https://youtu.be/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://open.spotify.com/*",
+        "https://spotify.com/*",
+        "https://music.apple.com/*",
+        "https://itunes.apple.com/*",
+        "https://music.youtube.com/*",
+        "https://www.youtube.com/*",
+        "https://youtu.be/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "TuneLinkr",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html"
+}
