@@ -13,6 +13,7 @@
         #status { margin-top: 0.5rem; color: green; }
         fieldset { margin-top: 1rem; }
         input[type="text"] { width: 100%; padding: 0.4rem; }
+        #customBackendUrl { margin-top: 0.5rem; }
     </style>
 </head>
 <body>
@@ -25,9 +26,14 @@
         <label><input type="radio" name="pref" value="youtube"> YouTube</label>
     </fieldset>
     <fieldset>
-        <legend>Backend</legend>
-        <label for="backendBase">Redirector base URL</label>
-        <input type="text" id="backendBase" placeholder="http://localhost:8000">
+        <legend>Backend Environment</legend>
+        <label><input type="radio" name="backend" value="localhost"> Local Development (localhost:8000)</label>
+        <label><input type="radio" name="backend" value="railway"> Railway Production</label>
+        <label><input type="radio" name="backend" value="custom"> Custom URL</label>
+        <div id="customBackendUrl" style="display: none;">
+            <label for="backendBase">Custom Backend URL</label>
+            <input type="text" id="backendBase" placeholder="https://your-app.railway.app">
+        </div>
     </fieldset>
     <button id="save">Save</button>
     <p id="status"></p>

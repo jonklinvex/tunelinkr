@@ -3,7 +3,7 @@
 // It listens for changes in the DOM to handle dynamically added links.
 console.log("[TuneLinkr] content.js loaded");
 
-let redirectorBase = 'http://localhost:8000';
+let redirectorBase = 'http://localhost:8000'; // Default fallback
 
 // Domains considered music platforms
 const MUSIC_DOMAINS = [
@@ -46,14 +46,32 @@ function rewriteLinks(pref) {
   });
 }
 
+function getBackendUrl(backendEnvironment, customBackendUrl) {
+  switch (backendEnvironment) {
+    case 'localhost':
+      return 'http://localhost:8000';
+    case 'railway':
+      return 'https://web-production-27b4.up.railway.app/'; // You'll need to update this with your actual Railway URL
+    case 'custom':
+      return customBackendUrl || 'http://localhost:8000';
+    default:
+      return 'http://localhost:8000';
+  }
+}
+
 // Load user settings from chrome.storage and rewrite links accordingly
 function init() {
-  chrome.storage.sync.get(['enabled', 'pref', 'backendBase'], (items) => {
+  chrome.storage.sync.get(['enabled', 'pref', 'backendEnvironment', 'customBackendUrl'], (items) => {
     const enabled = items.enabled !== false; // default to enabled
     const pref = items.pref || null;
-    if (items.backendBase && typeof items.backendBase === 'string') {
-      redirectorBase = items.backendBase;
-    }
+    const backendEnvironment = items.backendEnvironment || 'localhost';
+    const customBackendUrl = items.customBackendUrl || '';
+    
+    // Set the backend URL based on user selection
+    redirectorBase = getBackendUrl(backendEnvironment, customBackendUrl);
+    
+    console.log(`[TuneLinkr] Using backend: ${redirectorBase}`);
+    
     if (!enabled) return;
     // initial rewrite
     rewriteLinks(pref);
