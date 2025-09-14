@@ -25,20 +25,23 @@ function isMusicLink(href) {
   }
 }
 
-function buildRedirectUrl(originalHref, pref) {
+function buildRedirectUrl(originalHref, pref, deepLinks) {
   let redirectUrl = `${redirectorBase}/redirect?url=${encodeURIComponent(originalHref)}`;
   if (pref) {
     redirectUrl += `&pref=${encodeURIComponent(pref)}`;
   }
+  if (deepLinks) {
+    redirectUrl += `&deep_link=true`;
+  }
   return redirectUrl;
 }
 
-function rewriteLinks(pref) {
+function rewriteLinks(pref, deepLinks) {
   const anchors = document.querySelectorAll('a[href]');
   anchors.forEach(anchor => {
     if (!anchor.dataset.tunelinkrProcessed && isMusicLink(anchor.href)) {
       const originalHref = anchor.href;
-      const newHref = buildRedirectUrl(originalHref, pref);
+      const newHref = buildRedirectUrl(originalHref, pref, deepLinks);
       anchor.setAttribute('href', newHref);
       // mark as processed
       anchor.dataset.tunelinkrProcessed = 'true';
@@ -61,22 +64,24 @@ function getBackendUrl(backendEnvironment, customBackendUrl) {
 
 // Load user settings from chrome.storage and rewrite links accordingly
 function init() {
-  chrome.storage.sync.get(['enabled', 'pref', 'backendEnvironment', 'customBackendUrl'], (items) => {
+  chrome.storage.sync.get(['enabled', 'pref', 'backendEnvironment', 'customBackendUrl', 'deepLinks'], (items) => {
     const enabled = items.enabled !== false; // default to enabled
     const pref = items.pref || null;
     const backendEnvironment = items.backendEnvironment || 'localhost';
     const customBackendUrl = items.customBackendUrl || '';
+    const deepLinks = items.deepLinks === true;
     
     // Set the backend URL based on user selection
     redirectorBase = getBackendUrl(backendEnvironment, customBackendUrl);
     
     console.log(`[TuneLinkr] Using backend: ${redirectorBase}`);
+    console.log(`[TuneLinkr] Deep links enabled: ${deepLinks}`);
     
     if (!enabled) return;
     // initial rewrite
-    rewriteLinks(pref);
+    rewriteLinks(pref, deepLinks);
     // watch for future DOM changes
-    const observer = new MutationObserver(() => rewriteLinks(pref));
+    const observer = new MutationObserver(() => rewriteLinks(pref, deepLinks));
     observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
   });
 }

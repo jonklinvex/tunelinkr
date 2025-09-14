@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Load existing settings
-  chrome.storage.sync.get(['enabled', 'pref', 'backendEnvironment', 'customBackendUrl'], (items) => {
+  chrome.storage.sync.get(['enabled', 'pref', 'backendEnvironment', 'customBackendUrl', 'deepLinks'], (items) => {
     enabledCheckbox.checked = items.enabled !== false;
     
     // Load music service preference
@@ -45,6 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
       backendBaseInput.value = items.customBackendUrl;
     }
 
+    // Load deep links preference
+    const deepLinksCheckbox = document.getElementById('deepLinks');
+    deepLinksCheckbox.checked = items.deepLinks === true;
+
     toggleCustomBackend();
   });
 
@@ -57,12 +61,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const backendEnvironment = backendRadio ? backendRadio.value : 'localhost';
     
     const customBackendUrl = backendBaseInput.value.trim();
+    const deepLinksCheckbox = document.getElementById('deepLinks');
+    const deepLinks = deepLinksCheckbox.checked;
 
     chrome.storage.sync.set({ 
       enabled, 
       pref, 
       backendEnvironment, 
-      customBackendUrl 
+      customBackendUrl,
+      deepLinks
     }, () => {
       status.textContent = 'Settings saved.';
       setTimeout(() => status.textContent = '', 2000);

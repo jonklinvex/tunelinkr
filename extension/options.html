@@ -26,6 +26,11 @@
         <label><input type="radio" name="pref" value="youtube"> YouTube</label>
     </fieldset>
     <fieldset>
+        <legend>Link Behavior</legend>
+        <label><input type="checkbox" id="deepLinks"> Use deep links (open in native apps instead of browser)</label>
+        <small style="color: #666; display: block; margin-top: 0.25rem;">When enabled, converted links will open directly in music apps like Spotify or Apple Music instead of web browsers.</small>
+    </fieldset>
+    <fieldset>
         <legend>Backend Environment</legend>
         <label><input type="radio" name="backend" value="localhost"> Local Development (localhost:8000)</label>
         <label><input type="radio" name="backend" value="railway"> Railway Production</label>

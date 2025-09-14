@@ -471,7 +471,7 @@ def jaccard_similarity(set1: set, set2: set) -> float:
     union = set1 | set2
     return len(intersection) / len(union)
 
-def find_equivalent_links(title: str, artist: str, spotify_api, itunes_api, yt_api, source_duration_ms: Optional[int] = None, source_album: Optional[str] = None, source_track_number: Optional[int] = None):
+def find_equivalent_links(title: str, artist: str, spotify_api, itunes_api, yt_api, source_duration_ms: Optional[int] = None, source_album: Optional[str] = None, source_track_number: Optional[int] = None, use_deep_links: bool = False):
     # Create token sets for source metadata
     source_exact_tokens = create_token_set(title, artist, source_album)
     source_alt_tokens = create_token_set(title, artist)  # No album for alternatives
@@ -637,6 +637,20 @@ def find_equivalent_links(title: str, artist: str, spotify_api, itunes_api, yt_a
     print("YouTube results:", len(yt_results) if yt_results else 0, "tracks")
     process_results('youtube', yt_results, links, alternatives)
 
+    # Convert to deep links if requested
+    if use_deep_links:
+        for service, url in links.items():
+            if service == 'spotify' and 'open.spotify.com/track/' in url:
+                track_id = url.split('/track/')[1].split('?')[0]
+                links[service] = f"spotify:track:{track_id}"
+            elif service == 'apple' and ('music.apple.com' in url or 'itunes.apple.com' in url):
+                # For Apple Music, use music:// scheme
+                if '?i=' in url:
+                    links[service] = url.replace('https://music.apple.com', 'music://music.apple.com').replace('https://itunes.apple.com', 'music://itunes.apple.com')
+            elif service == 'youtube' and 'youtube.com/watch?v=' in url:
+                video_id = url.split('v=')[1].split('&')[0]
+                links[service] = f"https://music.youtube.com/watch?v={video_id}"
+
     return links, alternatives
 
 
@@ -695,11 +709,12 @@ def build_fallback_html(title: str, artist: str, links: dict, user_pref: str = '
 
 
 @app.get("/redirect", response_class=HTMLResponse)
-async def redirect_handler(request: Request, url: str, pref: Optional[str] = None) -> Response:
+async def redirect_handler(request: Request, url: str, pref: Optional[str] = None, deep_link: Optional[bool] = False) -> Response:
     """Main redirect endpoint.
 
     :param url: The original music streaming URL to convert.
     :param pref: Optional query parameter to override the preferred platform.
+    :param deep_link: Optional query parameter to use deep links that open in native apps.
     """
     if not url:
         raise HTTPException(status_code=400, detail="Missing 'url' parameter")
@@ -763,7 +778,7 @@ async def redirect_handler(request: Request, url: str, pref: Optional[str] = Non
 
         if not target_url and title and artist:
             # Search for equivalents across services (returns both matches and alternatives)
-            equivalent_links, alt_matches = find_equivalent_links(title, artist, spotify_api, itunes_api, yt_api, source_duration_ms, source_album, source_track_number)
+            equivalent_links, alt_matches = find_equivalent_links(title, artist, spotify_api, itunes_api, yt_api, source_duration_ms, source_album, source_track_number, use_deep_links=deep_link)
             print(f"[debug] equivalent_links: {equivalent_links}")
             print(f"[debug] alt_matches services: {list(alt_matches.keys())}")
             print(f"[debug] user_pref: {user_pref}")
@@ -785,7 +800,21 @@ async def redirect_handler(request: Request, url: str, pref: Optional[str] = Non
         return HTMLResponse(content=html, status_code=200)
 
     # No preference provided or same platform – redirect to original URL
-    response = RedirectResponse(url=url, status_code=302)
+    final_url = url
+    if deep_link:
+        # Convert original URL to deep link format
+        if platform == 'spotify' and 'open.spotify.com/track/' in url:
+            track_id = url.split('/track/')[1].split('?')[0]
+            final_url = f"spotify:track:{track_id}"
+        elif platform == 'apple' and ('music.apple.com' in url or 'itunes.apple.com' in url):
+            if '?i=' in url:
+                final_url = url.replace('https://music.apple.com', 'music://music.apple.com').replace('https://itunes.apple.com', 'music://itunes.apple.com')
+        elif platform == 'youtube' and 'youtube.com/watch?v=' in url:
+            video_id = url.split('v=')[1].split('&')[0]
+            final_url = f"https://music.youtube.com/watch?v={video_id}"
+        print(f"[debug] converted original URL to deep link: {final_url}")
+    
+    response = RedirectResponse(url=final_url, status_code=302)
     if user_pref:
         response.set_cookie("music_pref", user_pref, max_age=30*24*3600)
     return response
