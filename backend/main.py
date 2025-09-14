@@ -321,21 +321,114 @@ def extract_spotify_metadata(path: str) -> Optional[str]:
     return None
 
 
+def extract_spotify_metadata_with_tracking(path: str, query: str) -> tuple[Optional[str], dict]:
+    """Extract Spotify track ID and preserve tracking data for analytics.
+    
+    Spotify URLs can contain tracking parameters like:
+    - si: Spotify internal tracking ID
+    - utm_source: Marketing campaign source
+    - utm_medium: Marketing campaign medium
+    - utm_campaign: Marketing campaign name
+    - context: Playback context (playlist, album, etc.)
+    
+    Returns:
+        tuple: (track_id, tracking_data)
+    """
+    tracking_data = {}
+    
+    # Extract track ID using existing logic
+    track_id = extract_spotify_metadata(path)
+    
+    # Parse query parameters for tracking data
+    qs = parse_qs(query)
+    
+    # Spotify internal tracking ID
+    if "si" in qs:
+        tracking_data['spotify_internal_id'] = qs["si"][0]
+    
+    # UTM parameters for marketing attribution
+    utm_params = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
+    for param in utm_params:
+        if param in qs:
+            tracking_data[param] = qs[param][0]
+    
+    # Context parameter (playlist, album, artist, etc.)
+    if "context" in qs:
+        tracking_data['playback_context'] = qs["context"][0]
+    
+    # Other common Spotify parameters
+    if "highlight" in qs:
+        tracking_data['highlight'] = qs["highlight"][0]
+    
+    if "go" in qs:
+        tracking_data['go_parameter'] = qs["go"][0]
+    
+    return track_id, tracking_data
+
+
 def extract_apple_metadata(path: str, query: str) -> Optional[str]:
     """Extract the Apple Music track ID from the URL.
 
     Apple Music URLs may look like:
     https://music.apple.com/us/album/album-name/albumId?i=songId
+    https://music.apple.com/us/album/album-name/albumId?i=songId@uo=4
+    https://music.apple.com/us/song/song-name/songId
     We extract the `i` query parameter if present; otherwise return None.
     """
     qs = parse_qs(query)
     if "i" in qs:
-        return qs["i"][0]
-    # Sometimes the track ID is the last segment of the path
+        track_id = qs["i"][0]
+        # Handle cases where track ID has @uo=4 or other parameters appended
+        if '@' in track_id:
+            track_id = track_id.split('@')[0]
+        return track_id
+    # Sometimes the track ID is the last segment of the path (for /song/ URLs)
     parts = [p for p in path.split('/') if p]
     if parts and parts[-1].isdigit():
         return parts[-1]
     return None
+
+
+def extract_apple_metadata_with_tracking(path: str, query: str) -> tuple[Optional[str], dict]:
+    """Extract Apple Music track ID and preserve tracking data for analytics.
+    
+    Returns:
+        tuple: (track_id, tracking_data)
+        tracking_data contains user_origin and other analytics parameters
+    """
+    tracking_data = {}
+    
+    qs = parse_qs(query)
+    if "i" in qs:
+        raw_track_id = qs["i"][0]
+        if '@' in raw_track_id:
+            track_id, tracking_params = raw_track_id.split('@', 1)
+            # Parse tracking parameters like uo=4
+            if '=' in tracking_params:
+                param_parts = tracking_params.split('=')
+                if len(param_parts) == 2 and param_parts[0] == 'uo':
+                    uo_value = param_parts[1]
+                    tracking_data['user_origin'] = uo_value
+                    # Map uo values to human-readable sources
+                    uo_mapping = {
+                        '4': 'iTunes/Music app',
+                        '6': 'iTunes Store web',
+                        '8': 'Mobile Safari',
+                        '10': 'Desktop Safari'
+                    }
+                    tracking_data['user_origin_source'] = uo_mapping.get(uo_value, f'Unknown (uo={uo_value})')
+                else:
+                    tracking_data['raw_tracking'] = tracking_params
+        else:
+            track_id = raw_track_id
+        return track_id, tracking_data
+    
+    # Sometimes the track ID is the last segment of the path (for /song/ URLs)
+    parts = [p for p in path.split('/') if p]
+    if parts and parts[-1].isdigit():
+        return parts[-1], tracking_data
+    
+    return None, tracking_data
 
 
 def extract_youtube_metadata(path: str, query: str) -> Optional[str]:
@@ -741,10 +834,17 @@ async def redirect_handler(request: Request, url: str, pref: Optional[str] = Non
 
     track_id = None
     # Extract platform-specific track identifiers
+    # Extract tracking data for analytics
+    tracking_data = {}
+    
     if platform == "spotify":
-        track_id = extract_spotify_metadata(parsed.path)
+        track_id, tracking_data = extract_spotify_metadata_with_tracking(parsed.path, parsed.query)
+        if tracking_data:
+            print(f"[analytics] Spotify tracking data: {tracking_data}")
     elif platform == "apple":
-        track_id = extract_apple_metadata(parsed.path, parsed.query)
+        track_id, tracking_data = extract_apple_metadata_with_tracking(parsed.path, parsed.query)
+        if tracking_data:
+            print(f"[analytics] Apple Music tracking data: {tracking_data}")
     elif platform == "youtube":
         track_id = extract_youtube_metadata(parsed.path, parsed.query)
 
